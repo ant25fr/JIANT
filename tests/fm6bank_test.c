@@ -20,6 +20,8 @@ static void lcd_power(uint32_t s) { (void)s; }
 static void lcd_wake_now(void) {}
 static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *p)
 { (void)x; (void)y; (void)w; (void)h; (void)p; }
+static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)   /* (lcd.c, as blit above) */
+{ (void)x; (void)y; (void)w; (void)h; (void)c; }
 #define FELUCCA_FLASH 1
 #include "../firmware/src/gfx.c"
 #include "../firmware/src/panel.c"
@@ -70,6 +72,7 @@ static void fl_plain_window_init(void) {}
 #define FL_FAR(fn) (fn)
 #include "../firmware/src/storage.c"
 #include "../firmware/src/upreset.c"
+static void live_return(uint32_t m) { (void)m; }  /* (ui_live.c, not built here: no LIVE modifier to clear) */
 #include "../firmware/src/project.c"
 
 static uint8_t rep[1024];                         /* the editor's reply */

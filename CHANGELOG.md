@@ -1,0 +1,17 @@
+# Changelog
+
+Every update is listed here, newest first. Until 0.9.18 the changelog lived in README.md; this file takes over from 0.9.19.
+
+## v0.9.19
+
+The FX gate holds at every TIME, MIDI OUT in the browser emulator, and the host tests build again on a current compiler.
+
+The delay's sparse repeats come back, at any TIME. The buses' gate (0.6.14) shuts once nothing has been sent for 1.5 s and its output is under the floor, and 0.9.14's rest then clears the lines: at a TIME under 1.5 s the gate shut between two sparse repeats — a pluck through 1/4 at 120 BPM, FEEDBK 50 — and every repeat past 1.5 s was gone (0.8.4's note measured -5.6 dB of fade-in on each; by 0.9.18 the rest had taken the rest). The hold the long delay already had (0.8.4, fx.c fxg_hold) now covers every TIME: while a send, or a repeat over the floor going round the loop again, is within TIME, an echo is still to come back and the gate stays open; the repeats keep it so, and the last of them, once under the floor, lets it shut as before. A TIME under 1.5 s never shut before 1.5 s of quiet, and longer ones already held: only the gaps between sparse repeats changed, exactly as the sound needs.
+
+The tests. delay_test: "sparse repeats at 0.5 s (FEEDBK 50)" — one click, every repeat past the quiet's 1.5 s at its level (29998 10493 3661 1279 447 155 51), the same decay a repeat; it fails on the old gate (the repeats 0: cleared). The goldens: five renders with a delay send in their tails (PHASE 00_BRASS, VOICE 01_VOX_LEAD, ANIMAL 16_BAT, ANALOG POLY, ANALOG UNISON), regenerated with GOLDEN_UPDATE=1; health, voices, routing, the CPU budgets and every other render bit for bit as before. tests/golden.txt also gains the 50 renders that had never been in it (157 of 207 covered at 0.9.18) — worth a look apart from this change. audio_test's fresh() now clears the buses' lines and gate as delay_test's dreset does: the test's "no send: no wet" used to lean on the gate shutting by itself, which is exactly what this fix repairs.
+
+MIDI OUT in the browser emulator. Web MIDI in was already there (web_midi); MENU · MIDI · MIDI OUT KEYS / CLOCK / ALL goes out too: usb.config set at boot (no SIE in the browser, seq.c mo_* would drop every packet without it), the worklet drains the ring the USB interrupt would (usb.c ep1_tx) once a render quantum, and the page sends the packets to the port picked beside the keys' help — a loopMIDI (Windows) or IAC (macOS) port lets the editor or a DAW follow the emulator's clock and notes. The exports are web_midi_out (the packets, at most MQ) and web_midi_out_buf; emu_test checks a key's note on and its note off. Still not emulated: USB audio, the editor's SysEx, updates, TRS MIDI.
+
+The host tests build again on GCC 14 (implicit declarations are errors there, and run_tests.sh's set -e stops at the first broken compile): seven harnesses stubbed lcd_blit but not lcd_fill (gfx.c has filled with it since 0.9.0's dirty cells), four called project.c without ui_live.c's live_return (0.9.11), and, as above, audio_test's fresh() left the buses to the test after it.
+
+Flash: image 568 596 -> 568 580 B (16 B back, the old condition), 15 756 B free of the 584 336 B slot; RAM and the pool as 0.9.18. The 0.9.12 crackle fix (the sound's code first in the image) is verified on the host by the build's layout audit — 446 functions and 248 tables an interrupt reaches first in the image, the RAM code's reach, the register access — and the whole suite green; what is left of it needs a real FM-1 (SAVE > TOOLS > 6 CPU TEST, a photo of MENU > ABOUT).

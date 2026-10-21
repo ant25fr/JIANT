@@ -16,8 +16,9 @@
  *   - the screen: lcd_fill / lcd_blit into a 240 x 240 RGB565 frame (the panel's byte order);
  *   - the flash: a 1 MiB NOR image behind storage.c's hooks (settings, projects, user presets, the user
  *     sample slots read through it as XIP); the page keeps its storage sectors and gives them back at boot.
- * Not here: USB (MIDI, audio, the editor, updates), TRS MIDI, the serial console, the battery (full), the
- * crash / UBOOT paths. Nothing of the firmware changes for this file.
+ * Not here: USB (audio, the editor, updates), TRS MIDI, the serial console, the battery (full), the
+ * crash / UBOOT paths. MIDI runs through the page: Web MIDI in (web_midi), MIDI OUT drained to it (web_midi_out).
+ * Nothing of the firmware changes for this file.
  *   web/emu/build.sh  ->  build/emu/{felucca.wasm, worklet.js, index.html} */
 #include <stdint.h>
 
@@ -362,6 +363,7 @@ EXPORT void web_boot(void)
 {
     if (!web_booted)
         web_power_on();
+    usb.config = 1;                                   /* (0.9.19) MIDI OUT: no SIE here, the page drains the ring */
 }
 
 /* input, by the printed labels: buttons bit b = B_FX .. B_OCTUP (panel.c), keys bit k = key k (F3 .. G5),
@@ -398,6 +400,25 @@ EXPORT uint32_t web_midi(uint32_t status, uint32_t d1, uint32_t d2)
     if (status < 0x80u || status >= 0xF0u)
         return 1;
     return (uint32_t)midi_enqueue((status >> 4) | status << 8 | (d1 & 127u) << 16 | (d2 & 127u) << 24, 1);
+}
+
+/* (0.9.19) MIDI OUT (MENU > MIDI > MIDI OUT, seq.c mo_*): no SIE in the browser, so the page drains the ring the
+ * USB interrupt would (usb.c ep1_tx), as web_midi feeds the one it fills (midi_in_q). The packets are mo_send's
+ * (CIN | status | d1 | d2); the count of them this call (at most MQ) is returned, the packets in web_midi_out_buf */
+static uint32_t web_mo_q[MQ];
+EXPORT uint32_t *web_midi_out_buf(void) { return web_mo_q; }
+EXPORT uint32_t web_midi_out(void)
+{
+    uint32_t n = 0;
+    while (mo_r != mo_w && n < MQ) {
+        uint32_t pkt;
+        RING_PUBLISH();
+        pkt = midi_out_q[mo_r % MQ];
+        RING_PUBLISH();
+        mo_r++;
+        web_mo_q[n++] = pkt;
+    }
+    return n;
 }
 
 /* the LEDs: bit b = the button labelled b lit (bit 14: PLAY's green), keys bit k; the dim glow and the breath alike */

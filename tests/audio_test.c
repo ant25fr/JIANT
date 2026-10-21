@@ -55,6 +55,17 @@ static void fresh(void)
     host_clock = host_us = host_half_reads = host_dma_advanced = host_acks = host_nest = 0;
     host_pending = FM1_AUDIO_HALF;
     transport_req = panic_req = 0;
+    memset(dly_buf, 0, sizeof dly_buf);              /* (0.9.19) the buses too, as delay_test's dreset: a test's
+                                                        * FX tail no longer reaches the one after it (the gate holds
+                                                        * between the sparse repeats of a delay line now) */
+    memset(cho_buf, 0, sizeof cho_buf);
+    rev_clear();
+    fx.dly_lp = fx.dly_hp = fx.dt1 = fx.dt2 = 0;
+    fx.dl_xf = fx.dr_xf = 0;
+    fx.gr_on = fx.gr_old = 0;
+    fx.primed = 0;
+    fx.rtype = 0;
+    fxg_g = 32767; fxg_quiet = 0;
 }
 static voice_t *held(track_t *t, uint32_t note)
 {

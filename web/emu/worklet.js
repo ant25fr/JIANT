@@ -128,6 +128,15 @@ if (typeof registerProcessor === "function") {
       ex.web_render(n);
       this.busy += clock() - t0;
       this.frames += n;
+      if (ex.web_midi_out) {                           // MIDI OUT: the packets since the last quantum, to the page
+        const mn = ex.web_midi_out();
+        if (mn) {
+          const pk = new Uint32Array(ex.memory.buffer, ex.web_midi_out_buf(), mn);
+          const ev = new Array(mn);
+          for (let i = 0; i < mn; i++) { const p = pk[i]; ev[i] = [(p >>> 8) & 0xFF, (p >>> 16) & 0x7F, (p >>> 24) & 0x7F]; }
+          this.port.postMessage({ type: "midi_out", events: ev });
+        }
+      }
       out[0].set(new Float32Array(ex.memory.buffer, ex.web_out_l(), n));
       if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.web_out_r(), n));
       if (currentTime - this.lastFrame >= this.period) {

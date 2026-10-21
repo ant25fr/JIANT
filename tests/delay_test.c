@@ -656,6 +656,27 @@ static void test_features(void)
                  p1, p0);
         check(what, p1 > p0 * 9 / 10);
     }
+    {   /* (0.9.19) the gate between sparse repeats: a short TIME, FEEDBK 50, one click: every repeat after the
+         * quiet's 1.5 s at its level (until now the gate shut in the gaps between them, each repeat came back
+         * faded in over ~23 ms, -5.6 dB on its peak, and 0.9.14's rest cleared the line under the later ones) */
+        uint32_t dl = FS / 2u, k;
+        int32_t p[8];
+        double r;
+        int ok = 1;
+        dreset(); at_samples(dl);
+        song.g[G_DFDBK] = 50;
+        memset(L, 0, sizeof L); memset(R, 0, sizeof R);
+        drun(click_src, 0, 7u * dl + 800u);
+        for (k = 1; k <= 7u; k++)
+            p[k] = peak(L, k * dl - 400u, k * dl + 400u);
+        r = (double)p[3] / p[2];                        /* the loop's own decay a repeat */
+        for (k = 4; k <= 7u; k++)
+            if ((double)p[k] < 0.75 * r * p[k - 1])
+                ok = 0;
+        snprintf(what, sizeof what, "sparse repeats at 0.5 s (FEEDBK 50): each past 1.5 s at its level (%d %d %d %d %d %d %d)",
+                 p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+        check(what, ok);
+    }
 }
 
 /* ------------------------------------------------------------------ demos --- */

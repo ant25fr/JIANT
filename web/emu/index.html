@@ -89,6 +89,11 @@ footer small { font-size: 11px; opacity: .8; }
   <span><kbd>Shift</kbd>-click holds a button</span>
 </p>
 
+<p class="keys" id="midirow" hidden>
+  <span>MIDI IN: every connected input</span>
+  <span>MIDI OUT (MENU · MIDI · MIDI OUT): <select id="midiout"></select></span>
+</p>
+
 
 <p class="kofi" style="border-left:3px solid #ec6e50;padding:4px 0 4px 12px">If you resonate with my work, consider supporting me on <a href="https://ko-fi.com/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Ko-fi</a> (in Argentina: <a href="https://cafecito.app/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Cafecito</a>). Thanks for all the good energy, hope you enjoy this little beast 🫶✨🎹</p>
 <footer>
@@ -427,12 +432,21 @@ function saveFlash(sectors) {
   } catch { return false; }                                       // private mode, full: this session only
 }
 
-// ------------------------------------------------------------------ Web MIDI in (channel messages)
+// ------------------------------------------------------------------ Web MIDI (in: every input; out: the chosen port)
+let midiOut = null;
 async function midiOn() {
   if (!navigator.requestMIDIAccess) return;
   try {
     const access = await navigator.requestMIDIAccess();
+    const sel = document.getElementById("midiout");
     const bind = () => {
+      const kept = midiOut && midiOut.id;
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      sel.append(new Option("Off", ""));
+      for (const output of access.outputs.values())
+        sel.append(new Option(output.name || "MIDI out", output.id));
+      midiOut = (kept && access.outputs.get(kept)) || null;
+      sel.value = midiOut ? midiOut.id : "";
       for (const input of access.inputs.values()) {
         input.onmidimessage = (e) => {
           const d = e.data;
@@ -440,8 +454,10 @@ async function midiOn() {
         };
       }
     };
+    sel.onchange = () => { midiOut = access.outputs.get(sel.value) || null; };
     access.onstatechange = bind;
     bind();
+    document.getElementById("midirow").hidden = false;
   } catch { /* no permission: the panel only */ }
 }
 
@@ -472,6 +488,10 @@ async function switchOn() {
             warned = true;
             console.warn("JIANT: this browser does not keep the saves; they last until the page closes.");
           }
+        }
+        else if (m.type === "midi_out") {           // MENU · MIDI · MIDI OUT: the packets to the chosen port
+          for (const [st, d1, d2] of m.events)
+            if (midiOut) midiOut.send(new Uint8Array(st >= 0xF8 ? [st] : st >= 0xC0 && st < 0xE0 ? [st, d1] : [st, d1, d2]));
         }
       };
       node.port.postMessage({ type: "load", wasm, sectors: loadFlash(), master: masterValue }, [wasm]);

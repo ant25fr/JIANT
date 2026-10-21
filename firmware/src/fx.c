@@ -1231,9 +1231,11 @@ static inline int32_t cho_ens(const int16_t *buf, uint32_t w, uint32_t ph, int32
 static uint32_t fxg_quiet;
 static int32_t fxg_dpk;                              /* (0.6.89) the delay line's peak this block (fx_buses) */
 static int32_t fxg_g = 32767;
-/* (0.8.4) TIME past the quiet's 1.5 s (blocks, else 0), FEEDBK not 0; the blocks since something was sent or a repeat
+/* (0.8.4) TIME in blocks (+ 2; every TIME since 0.9.19), FEEDBK not 0; the blocks since something was sent or a repeat
  * over the floor went round the loop again: while that is within TIME, an echo is still to come back, the gate stays
- * open (a long delay's repeats come back at their level, not faded in after the gap). TIME up to 1.5 s as before */
+ * open (the repeats come back at their level, not faded in over ~23 ms after the gap). Until 0.9.19 only a TIME past
+ * the quiet's 1.5 s had the hold: at a shorter one the gate shut between the sparse repeats and 0.9.14's fx_rest then
+ * cleared the line under them (a pluck through 1/4 at 120 BPM lost every repeat after 1.5 s) */
 static uint32_t fxg_hold, fxg_dact;
 static uint8_t fxg_fb;
 #define fxg_dly (prf.fxg_dly)                           /* (0.9.14: fx_rest; prof.c's object: no new global) */
@@ -1512,7 +1514,7 @@ static __attribute__((noinline)) int dly_rate(uint32_t *dl, uint32_t *dr, uint32
     if (fresh) {                                        /* (the new line: the read points where they are, no fade) */
         fx.dl_now = *dl; fx.dr_now = *dr; fx.gr_on = (uint8_t)gr;
     }
-    fxg_hold = *dl > FXG_QUIET * CTL ? *dl / CTL + 2u : 0u;
+    fxg_hold = *dl / CTL + 2u;                         /* (0.9.19) every TIME: the gate holds through the gaps */
     return fx.dr_sh || fx.dsw || fx.din_g;
 }
 /* (0.6.81) a value's step a sample from cur toward to: a quarter of the way over the block, one at least (never past) */

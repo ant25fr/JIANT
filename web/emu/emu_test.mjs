@@ -85,6 +85,29 @@ a.render(300);
 a.ex.web_midi(0x80, 64, 0);
 a.render(300);
 check(`a MIDI note in (USB-MIDI's queue) sounds (peak ${a.peak.toFixed(3)})`, a.peak > 0.01);
+{ // MIDI OUT (web_midi_out, usb.config on at boot): KEYS (the default) sends the keys' notes, each with its note-off
+  const d = await device(null);
+  d.render(2500);                                        // past the splash and the sweep
+  const take = () => {
+    const out = [];
+    for (;;) {
+      const n = d.ex.web_midi_out();
+      if (!n) break;
+      for (const p of new Uint32Array(d.mem.buffer, d.ex.web_midi_out_buf(), n)) out.push(p);
+    }
+    return out;
+  };
+  check("midi out: nothing queued at rest", take().length === 0);
+  d.ex.web_keys(1 << 7);                                 // C4: the keys' note out (MENU · MIDI · MIDI OUT KEYS)
+  d.render(300);
+  d.ex.web_keys(0);
+  d.render(400);
+  const pk = take().map((p) => [(p >>> 4) & 0xF, (p >>> 8) & 0xFF, (p >>> 16) & 0x7F]);
+  check(`midi out: the key's note on and off (${pk.length} packets)`,
+        pk.length === 2 && pk[0][0] === 9 && pk[1][0] === 8 &&
+        (pk[0][1] & 0xF0) === 0x90 && (pk[1][1] & 0xF0) === 0x80 &&
+        (pk[0][1] & 0xF) === (pk[1][1] & 0xF) && pk[0][2] === pk[1][2]);
+}
 const draws = a.ex.web_screen_draws();
 a.turn(EN.K1, 3);
 check("KNOB 1 redraws the screen", a.ex.web_screen_draws() > draws);
